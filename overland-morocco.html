@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Overland">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Overland — Tangier to Marrakech</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Courier+Prime:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0d0e0c;
+    --surface: #131410;
+    --text: #c8bfa0;
+    --text-dim: #6b6550;
+    --accent: #a07840;
+    --accent-bright: #c89a50;
+    --line: #252320;
+    --safe-top: env(safe-area-inset-top, 20px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%; background: var(--bg); color: var(--text);
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    overflow: hidden; user-select: none; -webkit-user-select: none;
+  }
+
+  /* ── SETUP SCREEN ── */
+  #setup {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    padding: calc(var(--safe-top) + 32px) 28px calc(var(--safe-bottom) + 24px);
+    overflow-y: auto; background: var(--bg);
+    transition: opacity 0.5s ease;
+  }
+  #setup.hidden { opacity: 0; pointer-events: none; }
+
+  .setup-eyebrow {
+    font-family: 'Courier Prime', monospace; font-size: 10px;
+    letter-spacing: 5px; color: var(--accent); text-transform: uppercase; margin-bottom: 4px;
+  }
+  .setup-title {
+    font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 300;
+    color: var(--text); line-height: 1.1; margin-bottom: 4px;
+  }
+  .setup-subtitle {
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 17px; color: var(--text-dim); margin-bottom: 36px;
+  }
+
+  .field-group { margin-bottom: 20px; }
+  .field-label {
+    font-family: 'Courier Prime', monospace; font-size: 10px;
+    letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase;
+    margin-bottom: 7px; display: block;
+  }
+  .field-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 3px; padding: 12px 14px; color: var(--text);
+    font-family: 'Courier Prime', monospace; font-size: 13px; letter-spacing: 1px;
+    outline: none; -webkit-appearance: none; transition: border-color 0.2s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input::placeholder { color: var(--text-dim); }
+
+  .route-summary {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 3px;
+    padding: 16px; margin-bottom: 28px;
+  }
+  .route-summary-label {
+    font-family: 'Courier Prime', monospace; font-size: 10px;
+    letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 10px;
+  }
+  .route-summary-line {
+    font-family: 'Cormorant Garamond', serif; font-size: 15px;
+    color: var(--text-dim); line-height: 1.6;
+  }
+  .route-summary-line strong { color: var(--text); font-weight: 400; }
+
+  #btn-start {
+    width: 100%; padding: 19px; background: transparent;
+    border: 1px solid var(--accent); border-radius: 3px;
+    color: var(--accent-bright); font-family: 'Courier Prime', monospace;
+    font-size: 12px; letter-spacing: 6px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  #btn-start:active { background: rgba(160,120,64,0.12); }
+  #btn-start:disabled { border-color: var(--line); color: var(--text-dim); }
+
+  .setup-note {
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 13px; color: var(--text-dim); text-align: center; margin-top: 14px; line-height: 1.6;
+  }
+
+  /* ── PLAYER SCREEN ── */
+  #player {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.7s ease 0.2s; background: var(--bg);
+  }
+  #player.active { opacity: 1; pointer-events: all; }
+
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(var(--safe-top) + 14px) 22px 14px;
+    border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .wordmark {
+    font-family: 'Courier Prime', monospace; font-size: 10px;
+    letter-spacing: 5px; color: var(--accent); text-transform: uppercase;
+  }
+  .progress-label {
+    font-family: 'Courier Prime', monospace; font-size: 10px;
+    letter-spacing: 2px; color: var(--text-dim);
+  }
+
+  /* Progress track */
+  .progress-track {
+    display: flex; align-items: center; padding: 18px 22px 14px; gap: 0; flex-shrink: 0;
+  }
+  .track-segment {
+    flex: 1; height: 1px; background: var(--line); transition: background 0.5s;
+  }
+  .track-segment.done { background: var(--accent); }
+  .track-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--line); border: 1px solid var(--line);
+    flex-shrink: 0; transition: all 0.4s;
+  }
+  .track-dot.done { background: var(--accent); border-color: var(--accent); }
+  .track-dot.current {
+    background: var(--bg); border: 2px solid var(--accent-bright);
+    box-shadow: 0 0 10px rgba(200,154,80,0.45); width: 10px; height: 10px;
+  }
+
+  /* Narration */
+  .narration-area {
+    flex: 1; display: flex; flex-direction: column;
+    justify-content: center; padding: 10px 30px 0; overflow: hidden;
+  }
+  .wp-label {
+    font-family: 'Courier Prime', monospace; font-size: 10px;
+    letter-spacing: 4px; color: var(--accent); text-transform: uppercase;
+    margin-bottom: 16px; opacity: 0; transform: translateY(4px);
+    transition: all 0.5s ease 0.1s;
+  }
+  .wp-label.visible { opacity: 1; transform: translateY(0); }
+  .narration-text {
+    font-family: 'Cormorant Garamond', serif; font-size: 20px;
+    line-height: 1.7; color: var(--text); font-weight: 300;
+    opacity: 0; transform: translateY(10px);
+    transition: all 0.6s ease 0.2s;
+    overflow-y: auto; max-height: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  .narration-text.visible { opacity: 1; transform: translateY(0); }
+  .narration-text em { font-style: italic; color: var(--accent-bright); }
+
+  /* Audio status */
+  .audio-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 30px 8px; flex-shrink: 0;
+  }
+  .audio-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-dim); transition: all 0.3s; flex-shrink: 0;
+  }
+  .audio-dot.playing {
+    background: var(--accent-bright);
+    animation: pulse 1.3s ease-in-out infinite;
+  }
+  .audio-dot.loading {
+    background: var(--accent);
+    animation: blink 0.8s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.4; transform:scale(0.65); }
+  }
+  @keyframes blink {
+    0%,100% { opacity:1; } 50% { opacity:0.3; }
+  }
+  .audio-label {
+    font-family: 'Courier Prime', monospace; font-size: 10px;
+    letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase;
+  }
+
+  /* Bottom controls */
+  .bottom-controls { padding: 8px 22px calc(var(--safe-bottom) + 24px); flex-shrink: 0; }
+
+  .complete-msg {
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 17px; color: var(--text-dim); text-align: center;
+    margin-bottom: 14px; line-height: 1.5;
+  }
+
+  #btn-advance {
+    width: 100%; padding: 20px; background: transparent;
+    border: 1px solid var(--accent); border-radius: 3px;
+    color: var(--accent-bright); font-family: 'Courier Prime', monospace;
+    font-size: 11px; letter-spacing: 6px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s; -webkit-appearance: none;
+    position: relative; overflow: hidden;
+  }
+  #btn-advance:active { background: rgba(160,120,64,0.11); transform: scale(0.99); }
+  #btn-advance:disabled { border-color: var(--line); color: var(--text-dim); }
+
+  .ripple {
+    position: absolute; border-radius: 50%;
+    background: rgba(200,154,80,0.12);
+    transform: scale(0); animation: ripple-anim 0.5s ease-out;
+    pointer-events: none;
+  }
+  @keyframes ripple-anim { to { transform: scale(5); opacity: 0; } }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: calc(var(--safe-bottom) + 130px);
+    left: 22px; right: 22px; background: #1e1212;
+    border: 1px solid #5a2525; border-radius: 3px;
+    padding: 12px 14px; font-family: 'Courier Prime', monospace;
+    font-size: 11px; color: #c07070; letter-spacing: 1px;
+    opacity: 0; transform: translateY(8px);
+    transition: all 0.3s; pointer-events: none; z-index: 100;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ SETUP ══════════════════ -->
+<div id="setup">
+  <div class="setup-eyebrow">Overland</div>
+  <div class="setup-title">Tangier<br>to Marrakech</div>
+  <div class="setup-subtitle">Al Boraq · 500 km · 12 stops</div>
+
+  <div class="field-group">
+    <label class="field-label" for="el-key">ElevenLabs API Key</label>
+    <input class="field-input" type="password" id="el-key" placeholder="sk_…" autocomplete="off" autocorrect="off" spellcheck="false">
+  </div>
+
+  <div class="field-group">
+    <label class="field-label" for="voice-id">Voice ID</label>
+    <input class="field-input" type="text" id="voice-id" placeholder="ElevenLabs voice ID" autocomplete="off" autocorrect="off" spellcheck="false">
+  </div>
+
+  <div class="route-summary">
+    <div class="route-summary-label">This journey</div>
+    <div class="route-summary-line">
+      <strong>12 narrations</strong> — departure from Tangier through<br>
+      viaducts, Phoenician ruins, cork forests, phosphate plains,<br>
+      and into the Atlas foothills at Marrakech.
+    </div>
+  </div>
+
+  <button id="btn-start" onclick="startSession()">Board the train</button>
+  <p class="setup-note">Keys stay on your device.<br>Audio is pre-loaded before departure.</p>
+</div>
+
+<!-- ══════════════════ PLAYER ══════════════════ -->
+<div id="player">
+  <div class="top-bar">
+    <div class="wordmark">Overland</div>
+    <div class="progress-label" id="progress-label">— / 12</div>
+  </div>
+
+  <div class="progress-track" id="progress-track"></div>
+
+  <div class="narration-area">
+    <div class="wp-label" id="wp-label"></div>
+    <div class="narration-text" id="narration-text"></div>
+  </div>
+
+  <div class="audio-status">
+    <div class="audio-dot" id="audio-dot"></div>
+    <div class="audio-label" id="audio-label">Ready</div>
+  </div>
+
+  <div class="bottom-controls">
+    <div class="complete-msg" id="complete-msg" style="display:none">
+      Marrakech.<br>Journey complete.
+    </div>
+    <button id="btn-advance" onclick="advance()">— Next —</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+//  NARRATIONS
+// ══════════════════════════════════════
+const STOPS = [
+  {
+    label: "Departure — Tangier",
+    text: `From 1924 to 1956 Tangier operated as an international zone under joint European administration — a place of deliberate legal ambiguity that attracted smugglers, spies, artists and diplomats. Paul Bowles arrived in 1947 and never left. William Burroughs followed and wrote Naked Lunch here. Allen Ginsberg visited. The Rolling Stones came in the sixties. What drew them all was the edge — the feeling that ordinary rules did not quite apply.
+
+Morocco has changed. The ambiguity is mostly gone, the infrastructure dramatically improved. The train you are riding — Al Boraq, named for the winged creature that carried the prophet Muhammad from Mecca to Jerusalem in a single night — is Africa's first high speed rail line, opened in 2018.
+
+Between Tangier and Marrakech lie five hundred kilometers of interesting terrain. This narration will give you something to look at and something to think about — the geology, the history, the ecology and the human stories.
+
+When you arrive in Marrakech and meet and talk with the people who live there, you will know something about the beautiful country where they live, and that just might open doors.`
+  },
+  {
+    label: "Waypoint 1 — Tariq ibn Ziyad",
+    text: `The city sliding past your window has launched empires and buried them.
+
+In April of 711, a Berber general named Tariq ibn Ziyad mustered seven thousand men on this African shore. From Tangier he crossed the strait. The Iberian rock where Tariq landed and burned his boats still carries his name. Jabal Tariq. Gibraltar.
+
+At the Battle of Guadalete, Tariq destroyed a Visigoth army four times his size and took Toledo, the capital. City after city surrendered. Within seven years, nearly all of the Iberian Peninsula was under Islamic rule.
+
+But Tariq's superiors in Damascus had never authorized the invasion. He was called back, charged with insubordination, and died in obscurity.
+
+The civilization Tariq planted in Spain endured 781 years. It produced Averroes and the Alhambra. It brought algebra to European universities. Muslim rule in Spain ended January 2, 1492 — when the last emir surrendered Granada. Later that year, from their new home in the Alhambra, Ferdinand and Isabella gave Columbus the money for his voyage west.
+
+Seven thousand fighters and one general set out from Tangier, with the courage and resolve to burn their boats, and they changed history forever.`
+  },
+  {
+    label: "Waypoint 2 — El Hachef Viaduct",
+    text: `Ahead, your train crosses the El Hachef Viaduct.
+
+The gorge below challenged Morocco's engineers with difficult geology. The valley floor is layers of clay, mud, and liquefiable sand — soil that in an earthquake behaves like liquid. A conventional embankment would have dissolved under its own weight. Their solution: twin steel girders spanning 3.5 kilometers, resting on concrete piers punched nearly 70 meters down through the mud to reach bedrock. Africa's longest viaduct, completed in 2018. The El Hachef river, far below, drains west to the Atlantic.
+
+The structure you're crossing goes as deep below ground as it rises above the river.
+
+The train carrying you is called Al Boraq — Arabic for lightning. In Islamic tradition, Al Boraq was a white winged beast, bigger than a donkey but smaller than a mule, whose every stride reached as far as the eye could see. It carried the prophet Muhammad from Mecca to Jerusalem in a single night. The name fits the train. Before this line opened, Tangier to Casablanca took nearly five hours. Al Boraq covers it in two.
+
+The new passenger line freed the old conventional tracks entirely for freight — automobiles, containers, the manufactured goods streaming through Tangier's port, one of Africa's busiest.`
+  },
+  {
+    label: "Waypoint 3 — Lixus",
+    text: `Ahead, on the hill above the Loukkos River, sits Lixus.
+
+Phoenician sailors founded it in the 8th century BC — one of their first Atlantic outposts, a harbor where the known world ended and open ocean began. They called it Makom Shemesh. City of the Sun.
+
+The Romans took it, renamed it, and built the largest garum factory in the western Mediterranean on its slopes. Garum was fermented fish sauce — the Romans put it on everything, shipped it from Morocco to Britain to Byzantium. The stone vats where fish were salted and left to liquefy in the Atlantic sun still sit near the riverbank. Less than ten percent of the site has been excavated. Most of Lixus remains underground.
+
+The Roman writer Pliny the Elder placed the Garden of the Hesperides here — the mythological orchard where Hercules killed a hundred-headed dragon and stole the golden apples. Those apples weren't treasure. In Greek mythology they were immortality itself — a wedding gift from the earth goddess Gaia to Hera, queen of the gods.
+
+This hill, to the ancient Greeks, was the edge of the known world.
+
+The estuary eventually silted up. Lixus lost its water port advantage. The population moved downstream along the Loukkos to its mouth, fortified it, and built what is now Larache. The city that anchored the western end of the Roman world surrendered quietly to mud and grass.`
+  },
+  {
+    label: "Waypoint 4 — Mamora Forest",
+    text: `Along this stretch of track, the trees are cork oaks. This is the Mamora Forest — the largest cork oak forest in the world.
+
+The business of cork oak demands patience. Workers strip the bark by hand with special axes, peeling it away in large sections without cutting into the phloem — the inner layer that carries the tree's water and nutrients. The tree heals, grows new bark, and stands ready for harvest again in nine years. A single cork oak lives two hundred years and yields cork a dozen times. The stopper in a wine bottle likely came from a tree that has been harvested before and will be harvested again — possibly from this forest.
+
+The Mamora once stretched across more than 1,100 square miles of Morocco's Atlantic plain. Today cork oak covers less than 200. Since 1989 alone, cork oak coverage has dropped from 61 percent of the forest to 44 percent. Three hundred thousand people now live inside what was once uninhabited forest. Their livestock graze the seedlings before they can establish. Drought accelerates what overgrazing starts. Reforestation attempts fail because young trees cannot survive the summers.
+
+What you see from the window is a forest in the act of disappearing — slowly, incrementally, tree by tree in plain sight.`
+  },
+  {
+    label: "Waypoint 5 — Chellah, Rabat",
+    text: `Your train stops in Rabat, the capital city of Morocco. On the hill above the Bou Regreg river, just south of the station, sits Chellah.
+
+Phoenicians traded here in the 7th century BC. Then Romans built a city on top of the hill — Sala Colonia — with a forum, a triumphal arch, baths, and a port below. The Romans sent African ivory to Rome and brought Italian marble into Sala Colonia through this port. Then in the 5th century, when Christianity reached Morocco, Christian believers systematically removed the heads from statues of Roman gods in Sala Colonia. In 2023, a life-sized marble goddess without a head was discovered — the first such statue found in Morocco since the 1960s.
+
+Sala Colonia emptied slowly. By the time Muslim Arab forces arrived in the 7th century it was already largely in ruins. The Marinid sultans arrived in the 13th century and built their royal tombs directly on top. They enclosed the site with high walls, added a mosque and a Quranic school, and turned a dead Roman city into a dynastic Muslim cemetery. The minaret still stands.
+
+Chellah covers nearly five times the ground of Pompeii — most of it still unexcavated, much of it garden and ruin.
+
+White storks nest on the minaret and the old walls, returning every year from central Africa. Roman writers documented the birds' arrival in spring. The storks were here when the Romans were here. The storks still are.`
+  },
+  {
+    label: "Waypoint 6 — Casablanca",
+    text: `In the 7th century BC, Berbers founded a trading port here called Anfa. Phoenicians and Romans used it after them. Portuguese warships destroyed Anfa in 1468, built a fort on the ruins, and named it Casa Branca — White House. Spanish merchants translated that into Casablanca. The Moroccan Arabic name, Dar el-Beida, means exactly the same thing.
+
+In 1907 Casablanca was a Moroccan city of 30,000. That year, French construction workers began building a railroad over a sacred Moroccan cemetery. Local Muslim tribes rose up and killed nine European workers. In retaliation, France sent warships and bombarded the city for three days — killing an estimated 1,500 to 7,500 Moroccans.
+
+Five years later the Treaty of Fez made Morocco a French protectorate. Morocco was sovereign in appearance, but in practice it was a French colony. The sultan kept his throne, but when the Vichy government demanded he deport Morocco's 250,000 Jews to Nazi death camps, Sultan Mohammed V refused. "There are no Jewish citizens, no Muslim citizens," he told them. "They are all Moroccans." France exiled the Sultan to Madagascar in 1953. The country rose up. France had no choice but to allow his return.
+
+Morocco reclaimed its independence in 1956 through organized resistance and negotiation. The French left — though French influence, troops, and economic control lingered for years. The infrastructure remained, including the rail line you are traveling now.`
+  },
+  {
+    label: "Waypoint 7 — Chaouia Plain",
+    text: `The flat land spreading from both sides of the track is the Chaouia Plain — Morocco's primary wheat country, and one of the most contested pieces of agricultural ground in North African history.
+
+Moroccan tribes farmed this plain for centuries. Chaouia means Land of Shepherds — people who owned sheep, who knew this ground intimately, who exported wheat and barley through Casablanca in good years.
+
+The French had larger ambitions. When the protectorate began in 1912, French administrators explicitly set out to recreate the granary of Rome — the North African breadbasket that had fed the Roman Empire for centuries. They brought 692 European gentlemen-farmers, reorganized Moroccan land around export agriculture, and planted wheat across the Chaouia. The goal was grain for France.
+
+The land and the climate and the weather had other ideas. The Chaouia receives only 300 to 500 millimeters of rain each year and is prone to drought. Profits were minimal. Then in 1930 a swarm of locusts destroyed the harvest. After independence in 1956 the Moroccan government redistributed European-owned land back to Moroccan farmers. The Chaouia returned to what it had always been — wheat, barley, sheep.
+
+Today Morocco still cannot fully feed itself. In drought years it imports wheat. The granary of Rome never quite materialized — not for Rome, not for France, not for Morocco.`
+  },
+  {
+    label: "Waypoint 8 — Phosphate Belt",
+    text: `The flat plateau outside your window looks nondescript to most people, but it is one of the most strategically important landscapes on earth.
+
+Morocco holds between 70 and 75 percent of the world's known phosphate reserves. The phosphate belt running beneath your train — through Khouribga, Benguerir, and Youssoufia — has almost no parallel in the commodity world. As a comparison, Saudi Arabia holds roughly 17 percent of the world's oil. Morocco holds 70 percent of the world's phosphorus.
+
+Thirty to fifty meters below this plateau sits phosphate rock. Phosphate is one of three nutrients every food crop requires to grow. Nitrogen can be drawn from the air. Potassium is widely distributed. But phosphorus must come from the ground. It cannot be manufactured or substituted in the production of fertilizer. Modern agriculture depends on fertilizer to supply food to the world's eight billion people.
+
+The world's longest conveyor belt is a hundred kilometers long and carries phosphate from the Bou Craa mine in Western Sahara to the massive ships waiting at the port at Laayoune.
+
+The first mine opened in 1921. Today the state-owned OCP Group ships phosphate to over 130 countries.`
+  },
+  {
+    label: "Waypoint 9 — Benguerir",
+    text: `Your train stops at Benguerir. On the horizon, piles of mining waste rise from the plain like small mountains — the byproduct of one of the largest open pit mines in the world, 17 kilometers to the east.
+
+Mohammed VI Polytechnic University is here in Benguerir. The OCP Group, which controls Morocco's phosphate industry, funded and built the University. King Mohammed VI launched the project in 2009 and inaugurated it himself in 2017. It houses Africa's largest supercomputer and has research partnerships with MIT, Columbia, McGill, and the Max Planck Society.
+
+The Benguerir mine itself is now a living laboratory — open to scientists from partner universities to test solutions at full scale. The core problems are urgent. Phosphate mining consumes enormous quantities of water in a country already facing drought. The mining process releases trace metals into soil and groundwater. Local communities near processing plants report fluoride contamination of drinking water.
+
+Phosphate revenue funds far more than the University. It flows into the Moroccan government budget, financing schools, hospitals and social spending across the country. It funds Morocco's diplomatic expansion across Africa, where OCP now holds a 54 percent market share in fertilizers, building plants in Ethiopia, training farmers across twelve countries.
+
+When phosphate prices rise, Morocco's government has room to act. When they fall, the country feels it.`
+  },
+  {
+    label: "Waypoint 10 — High Atlas",
+    text: `The mountains rising on the southern horizon are the High Atlas — and the rock you are looking at was once the floor of an ancient ocean.
+
+As Africa moved northward into Europe over tens of millions of years, the ocean between them shrank. The sediments that had accumulated on the ocean floor — limestone, sandstone, shale — were compressed and forced upward. The ridges of the High Atlas are layered in purple, green, white and black — the colors of rock that formed underwater, now rising to over four thousand meters. The highest peak, Toubkal, is the tallest mountain in North Africa.
+
+Six million years ago this collision sealed the connection between the Mediterranean and the Atlantic. Without an influx of water, the entire Mediterranean Sea evaporated — leaving behind salt flats and gypsum deposits for seven hundred thousand years. Then a crack opened between Africa and Europe. The Atlantic burst through, carving what is now the Strait of Gibraltar, and flooded the Mediterranean in what geologists call the Zanclean Flood.
+
+The Atlas and the Appalachian Mountains of North America were once part of the same chain — formed when Africa and America collided three hundred million years ago, before the Atlantic existed.
+
+Marrakech is thirty minutes ahead.`
+  },
+  {
+    label: "Waypoint 11 — Marrakech",
+    text: `The Almoravid dynasty founded Marrakech in 1070 as their capital. The builders took the reddish earth of the surrounding plain and mixed it with lime and gravel, packed it into wooden forms, and raised walls nine meters high. When each section hardened the wooden forms were stripped away and moved up to the next layer. The holes still visible in the walls today are where the wooden poles held the formwork together. Nineteen kilometers of walls, two meters thick, enclosed what would become one of the great cities of the medieval world. The walls have stood for nine hundred years. Two hundred thousand people still live inside them.
+
+Marrakech was a caravan city — the northern terminus of trade routes that began in Timbuktu, a thousand miles to the south. Gold, salt, ivory and enslaved people moved north through the Sahara to these walls. Spices, cloth and manufactured goods moved south. The Atlas Mountains to the south of the city were the barrier that made Marrakech necessary — the last stop before the desert, the first stop after it.
+
+At the heart of the medina sits Jemaa el-Fna — a square that has existed since around 1050. Its name translates as assembly of the dead — a reference to public executions held there in its early centuries. Today it is a UNESCO Masterpiece of Oral and Intangible Heritage — the first place in the world to receive that designation — where storytellers, musicians, snake charmers and Gnaoua dancers perform nightly as they have for a thousand years.`
+  }
+];
+
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+let currentIndex = -1;
+let audioCache = {};
+let currentAudio = null;
+let elKey = '';
+let voiceId = '';
+const N = STOPS.length;
+
+// ══════════════════════════════════════
+//  START
+// ══════════════════════════════════════
+async function startSession() {
+  elKey = document.getElementById('el-key').value.trim();
+  voiceId = document.getElementById('voice-id').value.trim();
+
+  if (!elKey || !voiceId) { showToast('Enter your ElevenLabs key and Voice ID.'); return; }
+
+  const btn = document.getElementById('btn-start');
+  btn.disabled = true;
+  btn.textContent = 'Loading first narration…';
+
+  buildTrack();
+
+  // Pre-load first audio before showing player
+  const url = await fetchAudio(0);
+  if (!url) { btn.disabled = false; btn.textContent = 'Board the train'; return; }
+
+  document.getElementById('setup').classList.add('hidden');
+  document.getElementById('player').classList.add('active');
+
+  await advanceTo(0);
+  prefetchRest();
+}
+
+// ══════════════════════════════════════
+//  TRACK
+// ══════════════════════════════════════
+function buildTrack() {
+  const el = document.getElementById('progress-track');
+  el.innerHTML = '';
+  STOPS.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'track-dot'; dot.id = `dot-${i}`;
+    el.appendChild(dot);
+    if (i < N - 1) {
+      const seg = document.createElement('div');
+      seg.className = 'track-segment'; seg.id = `seg-${i}`;
+      el.appendChild(seg);
+    }
+  });
+}
+
+// ══════════════════════════════════════
+//  ADVANCE
+// ══════════════════════════════════════
+async function advance() {
+  if (currentIndex >= N - 1) return;
+  await advanceTo(currentIndex + 1);
+}
+
+async function advanceTo(idx) {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+
+  // Mark previous done
+  if (currentIndex >= 0) {
+    const d = document.getElementById(`dot-${currentIndex}`);
+    if (d) d.className = 'track-dot done';
+    if (currentIndex < N - 1) {
+      const s = document.getElementById(`seg-${currentIndex}`);
+      if (s) s.className = 'track-segment done';
+    }
+  }
+
+  currentIndex = idx;
+
+  const dot = document.getElementById(`dot-${idx}`);
+  if (dot) dot.className = 'track-dot current';
+  document.getElementById('progress-label').textContent = `${idx + 1} / ${N}`;
+
+  // Animate text
+  const labelEl = document.getElementById('wp-label');
+  const textEl = document.getElementById('narration-text');
+  labelEl.classList.remove('visible');
+  textEl.classList.remove('visible');
+
+  await sleep(80);
+  labelEl.textContent = STOPS[idx].label;
+  textEl.innerHTML = formatText(STOPS[idx].text);
+  textEl.scrollTop = 0;
+  await sleep(40);
+  labelEl.classList.add('visible');
+  textEl.classList.add('visible');
+
+  // Button
+  const isLast = idx === N - 1;
+  const btn = document.getElementById('btn-advance');
+  if (isLast) {
+    btn.style.display = 'none';
+    document.getElementById('complete-msg').style.display = 'block';
+  } else {
+    btn.textContent = idx === 0 ? 'Next stop →' : 'Next →';
+    btn.disabled = false;
+  }
+
+  // Audio
+  setAudio('loading', 'Loading…');
+  const url = audioCache[idx] || await fetchAudio(idx);
+  if (url) playAudio(url);
+  else setAudio('idle', 'Audio unavailable');
+}
+
+// ══════════════════════════════════════
+//  AUDIO
+// ══════════════════════════════════════
+async function fetchAudio(idx) {
+  if (audioCache[idx]) return audioCache[idx];
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': elKey,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg'
+      },
+      body: JSON.stringify({
+        text: STOPS[idx].text,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: { stability: 0.55, similarity_boost: 0.75, style: 0.08 }
+      })
+    });
+    if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${await res.text()}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    audioCache[idx] = url;
+    return url;
+  } catch (e) {
+    showToast(e.message.slice(0, 120));
+    return null;
+  }
+}
+
+function playAudio(url) {
+  currentAudio = new Audio(url);
+  currentAudio.play().catch(e => showToast('Audio play failed: ' + e.message));
+  setAudio('playing', 'Playing');
+  currentAudio.onended = () => setAudio('idle', 'Done');
+  currentAudio.onerror = () => setAudio('idle', 'Error');
+}
+
+async function prefetchRest() {
+  for (let i = 1; i < N; i++) {
+    if (!audioCache[i]) await fetchAudio(i);
+    await sleep(400);
+  }
+}
+
+function setAudio(state, label) {
+  const dot = document.getElementById('audio-dot');
+  const lbl = document.getElementById('audio-label');
+  dot.className = 'audio-dot' + (state !== 'idle' ? ` ${state}` : '');
+  lbl.textContent = label;
+}
+
+// ══════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════
+function formatText(t) {
+  return t
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '<br><br>');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+// Ripple
+document.getElementById('btn-advance').addEventListener('click', function(e) {
+  const r = document.createElement('span');
+  r.className = 'ripple';
+  const rect = this.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px`;
+  this.appendChild(r);
+  setTimeout(() => r.remove(), 500);
+});
+</script>
+</body>
+</html>
